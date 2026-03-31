@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string", "description": "Display name" },
+        "email": { "type": "string", "description": "Email address" },
+        "role": { "type": "string", "enum": ["COLABORADOR", "GESTOR"], "description": "User role" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "PDI task assigned to a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique task ID" },
+        "userId": { "type": "string", "description": "UID of the assigned user" },
+        "pillar": { "type": "string", "description": "Pillar name (e.g., Educação, Ritos, Cultura)" },
+        "title": { "type": "string", "description": "Task title" },
+        "description": { "type": "string", "description": "Detailed task description" },
+        "deadline": { "type": "string", "format": "date", "description": "Task deadline (ISO 8601)" },
+        "status": { "type": "string", "enum": ["Não Iniciado", "Em Andamento", "Concluído"], "description": "Current status" },
+        "comment": { "type": "string", "description": "User comment" },
+        "evidence": { "type": "string", "description": "Evidence text or file URL" },
+        "createdBy": { "type": "string", "description": "UID of the manager who created the task" }
+      },
+      "required": ["userId", "pillar", "title", "deadline", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Individual task documents"
+    }
+  }
+}

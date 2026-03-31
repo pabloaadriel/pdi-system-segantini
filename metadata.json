@@ -1,0 +1,5 @@
+{
+  "name": "PDI System - Gestão de Desenvolvimento Individual",
+  "description": "Sistema completo para gestão de Planos de Desenvolvimento Individual (PDI) com acompanhamento de progresso, tarefas por pilares e integração com Google Agenda.",
+  "requestFramePermissions": []
+}

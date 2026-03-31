@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isManager() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'GESTOR' ||
+         request.auth.token.email == "pabloaadriel@gmail.com" ||
+         request.auth.token.email == "laramartins@segantiniconsultoria.com" ||
+         request.auth.token.email == "guilherme@seahubcoworking.com.br");
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isTaskOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'name', 'email', 'role']) &&
+             data.uid is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string &&
+             data.role in ['COLABORADOR', 'GESTOR'];
+    }
+
+    function isValidTask(data) {
+      return hasOnlyAllowedFields(['userId', 'pillar', 'title', 'description', 'deadline', 'status', 'comment', 'evidence', 'createdBy', 'createdAt']) &&
+             data.userId is string &&
+             data.pillar is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.deadline is string &&
+             data.status in ['Não Iniciado', 'Em Andamento', 'Concluído'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isManager());
+      allow create: if isAuthenticated() && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(userId) || isManager()) && isValidUser(request.resource.data);
+      allow delete: if isManager();
+    }
+    
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && (isTaskOwner() || isManager());
+      allow create: if isManager() && isValidTask(request.resource.data);
+      allow update: if isAuthenticated() && 
+                    ((isTaskOwner() && hasOnlyAllowedFields(['status', 'comment', 'evidence', 'userId', 'pillar', 'title', 'description', 'deadline', 'createdBy', 'createdAt']) && 
+                      request.resource.data.title == resource.data.title && 
+                      request.resource.data.description == resource.data.description &&
+                      request.resource.data.deadline == resource.data.deadline) || 
+                     isManager()) && 
+                    isValidTask(request.resource.data);
+      allow delete: if isManager();
+    }
+  }
+}
