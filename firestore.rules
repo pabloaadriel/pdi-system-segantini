@@ -11,9 +11,9 @@ service cloud.firestore {
     function isManager() {
       return isAuthenticated() && 
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'GESTOR' ||
-         request.auth.token.email == "pabloaadriel@gmail.com" ||
-         request.auth.token.email == "laramartins@segantiniconsultoria.com" ||
-         request.auth.token.email == "guilherme@seahubcoworking.com.br");
+         request.auth.token.email.lower() == "pabloaadriel@gmail.com" ||
+         request.auth.token.email.lower() == "laramartins@segantiniconsultoria.com" ||
+         request.auth.token.email.lower() == "guilherme@seahubcoworking.com.br");
     }
     
     function isOwner(userId) {
@@ -57,6 +57,12 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidUser(request.resource.data);
       allow update: if isAuthenticated() && (isOwner(userId) || isManager()) && isValidUser(request.resource.data);
       allow delete: if isManager();
+    }
+    
+    match /invitedUsers/{email} {
+      allow get: if true; // Allow anyone to check if they are invited
+      allow create, update: if isAuthenticated() && (request.auth.token.email.lower() == email.lower() || isManager());
+      allow list, delete: if isManager();
     }
     
     match /tasks/{taskId} {

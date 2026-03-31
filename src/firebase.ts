@@ -17,7 +17,7 @@ const firebaseConfig = {
 console.log("Firebase Config initialized with Project ID:", firebaseConfig.projectId);
 if (!firebaseConfig.apiKey) console.error("Firebase API Key is missing!");
 
-const firestoreDatabaseId = import.meta.env.VITE_FIRESTORE_DATABASE_ID || firebaseConfigRaw.firestoreDatabaseId;
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfigRaw.firestoreDatabaseId;
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);

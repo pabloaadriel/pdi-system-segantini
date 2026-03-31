@@ -1,27 +1,33 @@
 import React, { useState } from "react";
 import { useAuth } from "../components/AuthContext";
 import { Navigate } from "react-router-dom";
-import { Target, ArrowRight, ShieldCheck, Zap, Users, CheckCircle2 } from "lucide-react";
+import { Target, ArrowRight, ShieldCheck, Zap, Users, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Login: React.FC = () => {
-  const { user, login, signUp, loading, error: authError } = useAuth();
+  const { user, login, signUp, loading, error: authError, clearError } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (user) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    setSuccessMessage(null);
+
+    if (!email) return;
 
     setIsProcessing(true);
     try {
       if (isSignUp) {
+        if (!password) return;
         await signUp(email, password);
       } else {
+        if (!password) return;
         await login(email, password);
       }
     } catch (error) {
@@ -99,11 +105,11 @@ const Login: React.FC = () => {
         >
           <div className="text-center mb-12">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-3">
-              {isSignUp ? "Criar Conta" : "Bem-vindo"}
+              {isSignUp ? "Primeiro Acesso" : "Bem-vindo"}
             </h2>
             <p className="text-slate-500 font-medium">
               {isSignUp 
-                ? "Cadastre-se para acessar seu PDI." 
+                ? "Cadastre sua senha para acessar seu PDI." 
                 : "Faça login para acessar seu PDI."}
             </p>
           </div>
@@ -114,9 +120,15 @@ const Login: React.FC = () => {
                 {authError}
               </div>
             )}
+
+            {successMessage && (
+              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                {successMessage}
+              </div>
+            )}
             
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">E-mail</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">E-mail de Acesso</label>
               <input
                 type="email"
                 value={email}
@@ -125,18 +137,32 @@ const Login: React.FC = () => {
                 required
                 className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-medium focus:border-primary focus:ring-0 transition-all outline-none"
               />
+              <p className="text-[10px] text-slate-400 ml-1 font-medium italic">
+                * Utilize o e-mail convidado pela Segantini Consultoria.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Senha</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-medium focus:border-primary focus:ring-0 transition-all outline-none"
-              />
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Senha</label>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-medium focus:border-primary focus:ring-0 transition-all outline-none pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
 
             <button
@@ -144,25 +170,31 @@ const Login: React.FC = () => {
               disabled={isProcessing || loading}
               className="w-full flex items-center justify-center gap-4 px-6 py-4 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all duration-200 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
             >
-              {isProcessing ? "Processando..." : (isSignUp ? "Cadastrar" : "Entrar")}
+              {isProcessing ? "Processando..." : (isSignUp ? "Ativar Conta" : "Entrar")}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-all" />
             </button>
 
-            <div className="pt-4 text-center">
+            <div className="pt-4 text-center space-y-3">
               <button
                 type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  clearError();
+                }}
                 className="text-sm font-bold text-primary hover:underline"
               >
-                {isSignUp ? "Já tem uma conta? Entre aqui" : "Não tem uma conta? Cadastre-se"}
+                {isSignUp ? "Já tem uma conta? Entre aqui" : "Primeiro acesso? Cadastre sua senha"}
               </button>
+              <p className="text-[10px] text-slate-400 font-medium">
+                Se esqueceu sua senha ou não consegue acessar, <br />
+                contate o suporte da Segantini Consultoria.
+              </p>
             </div>
           </form>
 
             <div className="pt-8 text-center">
               <p className="text-xs text-slate-400 font-medium uppercase tracking-widest leading-relaxed">
-                Ao entrar, você concorda com nossos <br />
-                <a href="#" className="text-primary hover:underline">Termos de Uso</a> e <a href="#" className="text-primary hover:underline">Privacidade</a>.
+                Desenvolvido por Segantini Consultoria
               </p>
             </div>
         </motion.div>

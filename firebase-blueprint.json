@@ -29,6 +29,18 @@
         "createdBy": { "type": "string", "description": "UID of the manager who created the task" }
       },
       "required": ["userId", "pillar", "title", "deadline", "status"]
+    },
+    "InvitedUser": {
+      "title": "InvitedUser",
+      "description": "User invited to the platform",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "description": "Invited email address" },
+        "name": { "type": "string", "description": "Name of the invited user" },
+        "role": { "type": "string", "enum": ["COLABORADOR", "GESTOR"], "description": "Assigned role" },
+        "status": { "type": "string", "enum": ["pendente", "ativo"], "description": "Invitation status" }
+      },
+      "required": ["email", "role", "status"]
     }
   },
   "firestore": {
@@ -39,6 +51,10 @@
     "/tasks/{taskId}": {
       "schema": "Task",
       "description": "Individual task documents"
+    },
+    "/invitedUsers/{email}": {
+      "schema": "InvitedUser",
+      "description": "List of invited users allowed to sign up"
     }
   }
 }

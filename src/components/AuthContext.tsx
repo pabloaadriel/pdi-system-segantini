@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   signUp: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,29 +35,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (userDoc.exists()) {
             setProfile(userDoc.data() as UserProfile);
           } else {
-            // This case might happen if sign up succeeded but profile creation failed
-            // or if the user was deleted from Firestore but not Auth
             const email = firebaseUser.email?.toLowerCase();
-            const predefined = email ? PREDEFINED_USERS[email] : null;
+            if (!email) throw new Error("No email found");
 
-            if (predefined) {
+            // Try to get data from invitedUsers first
+            const invitedDoc = await getDoc(doc(db, "invitedUsers", email));
+            let invitationData = invitedDoc.exists() ? invitedDoc.data() : null;
+
+            // Fallback to PREDEFINED_USERS
+            if (!invitationData && PREDEFINED_USERS[email]) {
+              invitationData = {
+                name: PREDEFINED_USERS[email].name,
+                role: PREDEFINED_USERS[email].role
+              };
+            }
+
+            if (invitationData) {
               const newProfile: UserProfile = {
                 uid: firebaseUser.uid,
-                name: predefined.name,
-                email: firebaseUser.email || "",
-                role: predefined.role
+                name: invitationData.name || "Usuário",
+                email: email,
+                role: invitationData.role
               };
               await setDoc(userDocRef, newProfile);
               setProfile(newProfile);
+
+              // Create initial tasks for collaborators
+              if (invitationData.role === "COLABORADOR") {
+                for (const task of INITIAL_TASKS) {
+                  await addDoc(collection(db, "tasks"), {
+                    ...task,
+                    userId: firebaseUser.uid,
+                    createdBy: "SYSTEM",
+                  });
+                }
+              }
             } else {
+              console.warn("User authenticated but not in invited list. Logging out.");
               await signOut(auth);
               setUser(null);
               setProfile(null);
             }
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("Error fetching user profile:", err);
-          setError("Erro ao carregar perfil do usuário.");
+          setError(`Erro ao carregar perfil do usuário: ${err.message || "Tente novamente mais tarde."}`);
         }
       } else {
         setProfile(null);
@@ -69,8 +92,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, pass: string) => {
     setError(null);
+    const normalizedEmail = email.toLowerCase().trim();
     try {
-      await loginWithEmail(email, pass);
+      await loginWithEmail(normalizedEmail, pass);
     } catch (err: any) {
       console.error("Login error in AuthContext:", err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -86,50 +110,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, pass: string) => {
     setError(null);
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
     
-    // Check if user is in predefined list (invited)
-    const predefined = PREDEFINED_USERS[normalizedEmail];
-    if (!predefined) {
-      setError("Acesso não autorizado. Seu e-mail não está na lista de convidados.");
-      throw new Error("Unauthorized email");
-    }
-
     try {
-      const result = await signUpWithEmail(email, pass);
+      // 1. Check if user is in invitedUsers collection
+      const invitedDocRef = doc(db, "invitedUsers", normalizedEmail);
+      const invitedDoc = await getDoc(invitedDocRef);
+      
+      let invitationData = invitedDoc.exists() ? invitedDoc.data() : null;
+
+      // Fallback to PREDEFINED_USERS if not in Firestore yet (for legacy support)
+      if (!invitationData && PREDEFINED_USERS[normalizedEmail]) {
+        invitationData = {
+          email: normalizedEmail,
+          name: PREDEFINED_USERS[normalizedEmail].name,
+          role: PREDEFINED_USERS[normalizedEmail].role,
+          status: "pendente"
+        };
+      }
+
+      if (!invitationData) {
+        setError("Este e-mail não está na lista de convidados. Entre em contato com o administrador.");
+        throw new Error("Email not invited");
+      }
+
+      // 2. Create the account in Firebase Auth
+      const result = await signUpWithEmail(normalizedEmail, pass);
       const firebaseUser = result.user;
 
-      // Create profile immediately after signup
+      // 3. Create profile in users collection
       const newProfile: UserProfile = {
         uid: firebaseUser.uid,
-        name: predefined.name,
-        email: firebaseUser.email || "",
-        role: predefined.role
+        name: invitationData.name || "Usuário",
+        email: firebaseUser.email || normalizedEmail,
+        role: invitationData.role
       };
       
-      await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
-      setProfile(newProfile);
+      try {
+        await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
+        setProfile(newProfile);
 
-      // Create initial tasks for collaborators
-      if (predefined.role === "COLABORADOR") {
-        for (const task of INITIAL_TASKS) {
-          await addDoc(collection(db, "tasks"), {
-            ...task,
-            userId: firebaseUser.uid,
-            createdBy: "SYSTEM",
-          });
+        // 4. Update status in invitedUsers
+        await setDoc(invitedDocRef, { ...invitationData, status: "ativo", email: normalizedEmail }, { merge: true });
+
+        // 5. Create initial tasks for collaborators
+        if (invitationData.role === "COLABORADOR") {
+          for (const task of INITIAL_TASKS) {
+            await addDoc(collection(db, "tasks"), {
+              ...task,
+              userId: firebaseUser.uid,
+              createdBy: "SYSTEM",
+            });
+          }
         }
+      } catch (firestoreErr) {
+        console.error("Firestore error during signup:", firestoreErr);
+        // Even if firestore fails, the auth account is created. 
+        // onAuthStateChanged will try to fix it on next load/refresh.
       }
     } catch (err: any) {
       console.error("Signup error in AuthContext:", err);
       if (err.code === 'auth/email-already-in-use') {
-        setError("Este e-mail já está em uso.");
+        setError("Este e-mail já possui uma conta ativa. Tente fazer login.");
       } else if (err.code === 'auth/weak-password') {
-        setError("A senha deve ter pelo menos 6 caracteres.");
+        setError("A senha deve ter no mínimo 6 caracteres.");
       } else if (err.code === 'auth/invalid-email') {
         setError("E-mail inválido.");
+      } else if (err.message === "Email not invited") {
+        // Error already set
       } else {
-        setError("Erro ao realizar cadastro.");
+        setError(`Erro ao realizar cadastro: ${err.message || "Tente novamente mais tarde."}`);
       }
       throw err;
     }
@@ -139,8 +189,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await auth.signOut();
   };
 
+  const clearError = () => setError(null);
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, error, login, signUp, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, error, login, signUp, logout, clearError }}>
       {children}
     </AuthContext.Provider>
   );

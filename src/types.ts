@@ -9,7 +9,7 @@ export interface UserProfile {
 
 export const PREDEFINED_USERS: Record<string, { name: string, role: UserRole }> = {
   "fulvio@seahubcoworking.com.br": { name: "Fúlvio", role: "COLABORADOR" },
-  "regis@seahubcoworoking.com.br": { name: "Régis", role: "COLABORADOR" },
+  "regis@seahubcoworking.com.br": { name: "Régis", role: "COLABORADOR" },
   "diegosena@seahubcoworking.com.br": { name: "Diego", role: "COLABORADOR" },
   "natha@seahubcoworking.com.br": { name: "Nathã", role: "COLABORADOR" },
   "socorro@seahubcoworking.com.br": { name: "Socorro", role: "COLABORADOR" },

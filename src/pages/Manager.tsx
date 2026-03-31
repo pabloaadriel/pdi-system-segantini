@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../components/AuthContext";
 import { db, handleFirestoreError, serverTimestamp } from "../firebase";
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs } from "firebase/firestore";
-import { UserProfile, Task, PILARES, TaskStatus } from "../types";
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, setDoc } from "firebase/firestore";
+import { UserProfile, Task, PILARES, TaskStatus, UserRole } from "../types";
 import { 
   Users, 
   TrendingUp, 
@@ -40,6 +40,9 @@ const Manager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [invitedUsers, setInvitedUsers] = useState<any[]>([]);
+  const [newInvite, setNewInvite] = useState({ email: "", name: "", role: "COLABORADOR" as UserRole });
   const [newTask, setNewTask] = useState<Partial<Task>>({
     pillar: PILARES[0],
     status: "Não Iniciado",
@@ -60,9 +63,16 @@ const Manager: React.FC = () => {
       setLoading(false);
     });
 
+    const qInvites = query(collection(db, "invitedUsers"));
+    const unsubscribeInvites = onSnapshot(qInvites, (snapshot) => {
+      const invitesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setInvitedUsers(invitesData);
+    });
+
     return () => {
       unsubscribeUsers();
       unsubscribeTasks();
+      unsubscribeInvites();
     };
   }, []);
 
@@ -111,6 +121,32 @@ const Manager: React.FC = () => {
     }
   };
 
+  const handleInviteUser = async () => {
+    if (!newInvite.email || !newInvite.name) return;
+    const email = newInvite.email.toLowerCase().trim();
+    try {
+      await setDoc(doc(db, "invitedUsers", email), {
+        ...newInvite,
+        email,
+        status: "pendente",
+        invitedAt: serverTimestamp()
+      });
+      setIsInviteModalOpen(false);
+      setNewInvite({ email: "", name: "", role: "COLABORADOR" });
+    } catch (error) {
+      handleFirestoreError(error, "create", "invitedUsers");
+    }
+  };
+
+  const handleDeleteInvite = async (email: string) => {
+    if (!window.confirm("Tem certeza que deseja remover este convite?")) return;
+    try {
+      await deleteDoc(doc(db, "invitedUsers", email));
+    } catch (error) {
+      handleFirestoreError(error, "delete", "invitedUsers");
+    }
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -126,6 +162,12 @@ const Manager: React.FC = () => {
           <p className="text-slate-500 mt-1">Acompanhe o desenvolvimento e gargalos do seu time.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsInviteModalOpen(true)}
+            className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
+          >
+            <UserPlus className="w-4 h-4" /> Convidar Usuário
+          </button>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="px-6 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center gap-2"
@@ -283,6 +325,102 @@ const Manager: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Invited Users List */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+          <h2 className="text-lg font-bold text-slate-900">Convites Pendentes</h2>
+          <p className="text-xs text-slate-500">Usuários que ainda não ativaram sua conta.</p>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {invitedUsers.filter(i => i.status === "pendente").length > 0 ? (
+            invitedUsers.filter(i => i.status === "pendente").map(invite => (
+              <div key={invite.email} className="px-8 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border border-amber-100">
+                    {invite.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm leading-tight">{invite.name}</h4>
+                    <p className="text-[10px] text-slate-500">{invite.email} • {invite.role}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleDeleteInvite(invite.email)}
+                  className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="py-8 text-center">
+              <p className="text-slate-400 text-sm italic">Nenhum convite pendente.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* New Invite Modal */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h2 className="text-xl font-bold text-slate-900">Convidar Usuário</h2>
+              <button onClick={() => setIsInviteModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nome Completo</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: João Silva"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  value={newInvite.name}
+                  onChange={(e) => setNewInvite({ ...newInvite, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">E-mail</label>
+                <input 
+                  type="email" 
+                  placeholder="joao@empresa.com"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  value={newInvite.email}
+                  onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Cargo / Função</label>
+                <select 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  value={newInvite.role}
+                  onChange={(e) => setNewInvite({ ...newInvite, role: e.target.value as any })}
+                >
+                  <option value="COLABORADOR">Colaborador</option>
+                  <option value="GESTOR">Gestor</option>
+                </select>
+              </div>
+            </div>
+            <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100 flex items-center gap-3">
+              <button 
+                onClick={handleInviteUser}
+                className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+              >
+                Enviar Convite
+              </button>
+              <button 
+                onClick={() => setIsInviteModalOpen(false)}
+                className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Task Modal */}
       {isModalOpen && (
