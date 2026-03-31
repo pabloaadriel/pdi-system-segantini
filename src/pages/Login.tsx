@@ -5,17 +5,20 @@ import { Target, ArrowRight, ShieldCheck, Zap, Users, CheckCircle2 } from "lucid
 import { motion } from "framer-motion";
 
 const Login: React.FC = () => {
-  const { user, signIn, loading } = useAuth();
+  const { user, signIn, loading, error: authError } = useAuth();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
 
   const handleSignIn = async () => {
+    console.log("Login button clicked");
     setIsLoggingIn(true);
     try {
+      console.log("Calling signIn from AuthContext...");
       await signIn();
+      console.log("signIn call completed");
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Login error in handleSignIn:", error);
     } finally {
       setIsLoggingIn(false);
     }
@@ -93,6 +96,11 @@ const Login: React.FC = () => {
           </div>
 
           <div className="space-y-4">
+            {authError && (
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                {authError}
+              </div>
+            )}
             <button
               onClick={handleSignIn}
               disabled={isLoggingIn || loading}

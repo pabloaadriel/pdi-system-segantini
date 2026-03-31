@@ -14,15 +14,30 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigRaw.measurementId,
 };
 
+console.log("Firebase Config initialized with Project ID:", firebaseConfig.projectId);
+if (!firebaseConfig.apiKey) console.error("Firebase API Key is missing!");
+
 const firestoreDatabaseId = import.meta.env.VITE_FIRESTORE_DATABASE_ID || firebaseConfigRaw.firestoreDatabaseId;
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
 export { serverTimestamp };
 
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const signInWithGoogle = async () => {
+  console.log("Initiating Google Sign-In...");
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    console.log("Google Sign-In successful:", result.user.email);
+    return result;
+  } catch (error) {
+    console.error("Google Sign-In error details:", error);
+    throw error;
+  }
+};
 
 export const handleFirestoreError = (error: any, operation: string, path: string | null) => {
   const errInfo = {
