@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, addDoc } from "firebase/firestore";
-import { auth, db, signInWithGoogle } from "../firebase";
+import { auth, db, signUpWithEmail, loginWithEmail } from "../firebase";
 import { UserProfile, PREDEFINED_USERS, INITIAL_TASKS } from "../types";
 
 interface AuthContextType {
@@ -9,7 +9,8 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
-  signIn: () => Promise<void>;
+  login: (email: string, pass: string) => Promise<void>;
+  signUp: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -33,7 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (userDoc.exists()) {
             setProfile(userDoc.data() as UserProfile);
           } else {
-            // Check if user is in predefined list
+            // This case might happen if sign up succeeded but profile creation failed
+            // or if the user was deleted from Firestore but not Auth
             const email = firebaseUser.email?.toLowerCase();
             const predefined = email ? PREDEFINED_USERS[email] : null;
 
@@ -46,23 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               };
               await setDoc(userDocRef, newProfile);
               setProfile(newProfile);
-
-              // Create initial tasks for collaborators
-              if (predefined.role === "COLABORADOR") {
-                for (const task of INITIAL_TASKS) {
-                  await addDoc(collection(db, "tasks"), {
-                    ...task,
-                    userId: firebaseUser.uid,
-                    createdBy: "SYSTEM",
-                  });
-                }
-              }
             } else {
-              // User not in list - sign out
               await signOut(auth);
               setUser(null);
               setProfile(null);
-              setError("Acesso não autorizado. Seu e-mail não está na lista de membros permitidos.");
             }
           }
         } catch (err) {
@@ -78,18 +67,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const signIn = async () => {
+  const login = async (email: string, pass: string) => {
     setError(null);
     try {
-      await signInWithGoogle();
+      await loginWithEmail(email, pass);
     } catch (err: any) {
-      console.error("Sign in error in AuthContext:", err);
-      if (err.code === 'auth/popup-blocked') {
-        setError("O popup de login foi bloqueado pelo navegador. Por favor, permita popups para este site.");
-      } else if (err.code === 'auth/cancelled-popup-request') {
-        // User closed the popup, no need to show error
+      console.error("Login error in AuthContext:", err);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError("E-mail ou senha incorretos.");
+      } else if (err.code === 'auth/too-many-requests') {
+        setError("Muitas tentativas falhas. Tente novamente mais tarde.");
       } else {
-        setError("Erro ao realizar login com Google.");
+        setError("Erro ao realizar login.");
+      }
+      throw err;
+    }
+  };
+
+  const signUp = async (email: string, pass: string) => {
+    setError(null);
+    const normalizedEmail = email.toLowerCase();
+    
+    // Check if user is in predefined list (invited)
+    const predefined = PREDEFINED_USERS[normalizedEmail];
+    if (!predefined) {
+      setError("Acesso não autorizado. Seu e-mail não está na lista de convidados.");
+      throw new Error("Unauthorized email");
+    }
+
+    try {
+      const result = await signUpWithEmail(email, pass);
+      const firebaseUser = result.user;
+
+      // Create profile immediately after signup
+      const newProfile: UserProfile = {
+        uid: firebaseUser.uid,
+        name: predefined.name,
+        email: firebaseUser.email || "",
+        role: predefined.role
+      };
+      
+      await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
+      setProfile(newProfile);
+
+      // Create initial tasks for collaborators
+      if (predefined.role === "COLABORADOR") {
+        for (const task of INITIAL_TASKS) {
+          await addDoc(collection(db, "tasks"), {
+            ...task,
+            userId: firebaseUser.uid,
+            createdBy: "SYSTEM",
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error("Signup error in AuthContext:", err);
+      if (err.code === 'auth/email-already-in-use') {
+        setError("Este e-mail já está em uso.");
+      } else if (err.code === 'auth/weak-password') {
+        setError("A senha deve ter pelo menos 6 caracteres.");
+      } else if (err.code === 'auth/invalid-email') {
+        setError("E-mail inválido.");
+      } else {
+        setError("Erro ao realizar cadastro.");
       }
       throw err;
     }
@@ -100,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, error, signIn, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, error, login, signUp, logout }}>
       {children}
     </AuthContext.Provider>
   );

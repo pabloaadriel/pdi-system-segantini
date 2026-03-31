@@ -5,22 +5,29 @@ import { Target, ArrowRight, ShieldCheck, Zap, Users, CheckCircle2 } from "lucid
 import { motion } from "framer-motion";
 
 const Login: React.FC = () => {
-  const { user, signIn, loading, error: authError } = useAuth();
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const { user, login, signUp, loading, error: authError } = useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
 
-  const handleSignIn = async () => {
-    console.log("Login button clicked");
-    setIsLoggingIn(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+
+    setIsProcessing(true);
     try {
-      console.log("Calling signIn from AuthContext...");
-      await signIn();
-      console.log("signIn call completed");
+      if (isSignUp) {
+        await signUp(email, password);
+      } else {
+        await login(email, password);
+      }
     } catch (error) {
-      console.error("Login error in handleSignIn:", error);
+      console.error("Auth error:", error);
     } finally {
-      setIsLoggingIn(false);
+      setIsProcessing(false);
     }
   };
 
@@ -91,29 +98,66 @@ const Login: React.FC = () => {
           className="w-full max-w-md"
         >
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-3">Bem-vindo</h2>
-            <p className="text-slate-500 font-medium">Faça login com sua conta Google para acessar seu PDI.</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-3">
+              {isSignUp ? "Criar Conta" : "Bem-vindo"}
+            </h2>
+            <p className="text-slate-500 font-medium">
+              {isSignUp 
+                ? "Cadastre-se para acessar seu PDI." 
+                : "Faça login para acessar seu PDI."}
+            </p>
           </div>
 
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {authError && (
               <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-medium animate-in fade-in slide-in-from-top-2">
                 {authError}
               </div>
             )}
-            <button
-              onClick={handleSignIn}
-              disabled={isLoggingIn || loading}
-              className="w-full flex items-center justify-center gap-4 px-6 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <img 
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                alt="Google" 
-                className="w-5 h-5"
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">E-mail</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-medium focus:border-primary focus:ring-0 transition-all outline-none"
               />
-              {isLoggingIn ? "Entrando..." : "Entrar com Google"}
-              <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Senha</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-medium focus:border-primary focus:ring-0 transition-all outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isProcessing || loading}
+              className="w-full flex items-center justify-center gap-4 px-6 py-4 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all duration-200 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+            >
+              {isProcessing ? "Processando..." : (isSignUp ? "Cadastrar" : "Entrar")}
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-all" />
             </button>
+
+            <div className="pt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm font-bold text-primary hover:underline"
+              >
+                {isSignUp ? "Já tem uma conta? Entre aqui" : "Não tem uma conta? Cadastre-se"}
+              </button>
+            </div>
+          </form>
 
             <div className="pt-8 text-center">
               <p className="text-xs text-slate-400 font-medium uppercase tracking-widest leading-relaxed">
@@ -121,7 +165,6 @@ const Login: React.FC = () => {
                 <a href="#" className="text-primary hover:underline">Termos de Uso</a> e <a href="#" className="text-primary hover:underline">Privacidade</a>.
               </p>
             </div>
-          </div>
         </motion.div>
       </div>
     </div>

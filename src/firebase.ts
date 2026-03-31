@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import firebaseConfigRaw from "../firebase-applet-config.json";
 
@@ -22,22 +22,10 @@ const firestoreDatabaseId = import.meta.env.VITE_FIRESTORE_DATABASE_ID || fireba
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, firestoreDatabaseId);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-
 export { serverTimestamp };
 
-export const signInWithGoogle = async () => {
-  console.log("Initiating Google Sign-In...");
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    console.log("Google Sign-In successful:", result.user.email);
-    return result;
-  } catch (error) {
-    console.error("Google Sign-In error details:", error);
-    throw error;
-  }
-};
+export const signUpWithEmail = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
+export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
 
 export const handleFirestoreError = (error: any, operation: string, path: string | null) => {
   const errInfo = {
