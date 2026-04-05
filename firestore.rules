@@ -11,10 +11,11 @@ service cloud.firestore {
     function isManager() {
       return isAuthenticated() && 
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'GESTOR' ||
-         ((request.auth.token.email.lower() == "pabloaadriel@gmail.com" ||
-           request.auth.token.email.lower() == "laramartins@segantiniconsultoria.com" ||
-           request.auth.token.email.lower() == "guilherme@seahubcoworking.com.br") && 
-          request.auth.token.email_verified == true));
+         (request.auth.token.email.lower() == "pabloaadriel@gmail.com" ||
+          request.auth.token.email.lower() == "pablo.adriiel@hotmail.com" ||
+          request.auth.token.email.lower() == "pablo.adriiel@gmail.com" ||
+          request.auth.token.email.lower() == "laramartins@segantiniconsultoria.com" ||
+          request.auth.token.email.lower() == "guilherme@seahubcoworking.com.br"));
     }
     
     function isOwner(userId) {

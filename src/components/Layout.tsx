@@ -62,12 +62,12 @@ const Layout: React.FC = () => {
       <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-200 sticky top-0 h-screen">
         <div className="p-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+            <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/20">
               <Target className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-black text-primary tracking-tighter uppercase leading-none">PDI System</span>
-              <span className="text-[10px] font-bold text-accent uppercase tracking-widest">Segantini Consultoria</span>
+              <span className="text-xl font-black text-orange-600 tracking-tighter uppercase leading-none">PDI System</span>
+              <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">Segantini Consultoria</span>
             </div>
           </div>
         </div>
@@ -80,13 +80,13 @@ const Layout: React.FC = () => {
               className={clsx(
                 "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200",
                 location.pathname === item.path
-                  ? "bg-slate-50 text-primary shadow-sm border border-slate-100"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-primary"
+                  ? "bg-slate-50 text-orange-600 shadow-sm border border-slate-100"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-orange-600"
               )}
             >
               <item.icon className={clsx(
                 "w-5 h-5",
-                location.pathname === item.path ? "text-primary" : "text-slate-400"
+                location.pathname === item.path ? "text-orange-600" : "text-slate-400"
               )} />
               {item.name}
             </Link>
@@ -103,13 +103,13 @@ const Layout: React.FC = () => {
                     className={clsx(
                       "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200",
                       location.pathname === `/tasks/${collab.uid}`
-                        ? "bg-primary/5 text-primary border border-primary/10"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-primary"
+                        ? "bg-orange-600/5 text-orange-600 border border-orange-600/10"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-orange-600"
                     )}
                   >
                     <UserIcon className={clsx(
                       "w-5 h-5",
-                      location.pathname === `/tasks/${collab.uid}` ? "text-primary" : "text-slate-400"
+                      location.pathname === `/tasks/${collab.uid}` ? "text-orange-600" : "text-slate-400"
                     )} />
                     <span className="truncate">Tarefas de {collab.name}</span>
                   </Link>
@@ -124,7 +124,7 @@ const Layout: React.FC = () => {
         <div className="p-6 border-t border-slate-100">
           <div className="mb-6 px-2">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Consultoria</p>
-            <p className="text-xs font-bold text-primary">Segantini Consultoria</p>
+            <p className="text-xs font-bold text-orange-600">Segantini Consultoria</p>
           </div>
           <button
             onClick={handleLogout}
@@ -151,7 +151,7 @@ const Layout: React.FC = () => {
       )}>
         <div className="p-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
               <Target className="w-5 h-5 text-white" />
             </div>
             <span className="text-lg font-black text-slate-900 tracking-tighter uppercase">PDI System</span>
@@ -170,7 +170,7 @@ const Layout: React.FC = () => {
               className={clsx(
                 "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
                 location.pathname === item.path
-                  ? "bg-primary/5 text-primary"
+                  ? "bg-orange-600/5 text-orange-600"
                   : "text-slate-500 hover:bg-slate-50"
               )}
             >
@@ -191,7 +191,7 @@ const Layout: React.FC = () => {
                     className={clsx(
                       "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
                       location.pathname === `/tasks/${collab.uid}`
-                        ? "bg-primary/5 text-primary"
+                        ? "bg-orange-600/5 text-orange-600"
                         : "text-slate-500 hover:bg-slate-50"
                     )}
                   >
@@ -249,9 +249,9 @@ const Layout: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-slate-900 leading-tight">{profile?.name}</p>
-                <p className="text-[10px] font-bold text-accent uppercase tracking-widest">{profile?.role}</p>
+                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">{profile?.role}</p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-primary font-bold shadow-sm border border-slate-200">
+              <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-orange-600 font-bold shadow-sm border border-slate-200">
                 {profile?.name?.charAt(0) || <UserIcon className="w-5 h-5" />}
               </div>
               <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />

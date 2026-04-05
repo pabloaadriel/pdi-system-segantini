@@ -14,7 +14,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, readOnly }) =
     switch (task.status) {
       case 'Concluído':
         return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
-      case 'Em Andamento':
+      case 'Em andamento':
         return <Clock className="w-5 h-5 text-amber-500" />;
       default:
         return <Circle className="w-5 h-5 text-slate-300" />;
@@ -23,7 +23,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStatusChange, readOnly }) =
 
   const cycleStatus = () => {
     if (readOnly) return;
-    const statuses: TaskStatus[] = ['Não Iniciado', 'Em Andamento', 'Concluído'];
+    const statuses: TaskStatus[] = ['A fazer', 'Em andamento', 'Concluído'];
     const currentIndex = statuses.indexOf(task.status);
     const nextIndex = (currentIndex + 1) % statuses.length;
     onStatusChange(task.id, statuses[nextIndex]);

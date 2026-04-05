@@ -79,35 +79,42 @@ const Dashboard: React.FC = () => {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[400px]">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
     </div>
   );
 
   const today = startOfDay(new Date());
 
   // Apply filters
-  const filteredTasks = tasks.filter(t => {
-    const matchCollaborator = filterCollaborator === "all" || t.userId === filterCollaborator;
-    const matchPillar = filterPillar === "all" || t.pillar === filterPillar;
-    const matchStartDate = !startDate || t.deadline >= startDate;
-    const matchEndDate = !endDate || t.deadline <= endDate;
-    return matchCollaborator && matchPillar && matchStartDate && matchEndDate;
-  });
+  const filteredTasks = React.useMemo(() => {
+    return tasks.filter(t => {
+      const matchCollaborator = filterCollaborator === "all" || t.userId === filterCollaborator;
+      const matchPillar = filterPillar === "all" || t.pillar === filterPillar;
+      const matchStartDate = !startDate || t.deadline >= startDate;
+      const matchEndDate = !endDate || t.deadline <= endDate;
+      return matchCollaborator && matchPillar && matchStartDate && matchEndDate;
+    });
+  }, [tasks, filterCollaborator, filterPillar, startDate, endDate]);
 
   // Progress Calculation Logic
-  const relevantTasks = filteredTasks.filter(t => isBefore(parseISO(t.deadline), today) || format(parseISO(t.deadline), "yyyy-MM-dd") === format(today, "yyyy-MM-dd"));
-  const completedTasksCount = relevantTasks.filter(t => t.status === "Concluído").length;
-  const overallProgress = relevantTasks.length > 0 ? (completedTasksCount / relevantTasks.length) * 100 : 0;
+  const { relevantTasks, completedTasksCount, overallProgress } = React.useMemo(() => {
+    const relevant = filteredTasks.filter(t => isBefore(parseISO(t.deadline), today) || format(parseISO(t.deadline), "yyyy-MM-dd") === format(today, "yyyy-MM-dd"));
+    const completed = relevant.filter(t => t.status === "Concluído").length;
+    const progress = relevant.length > 0 ? (completed / relevant.length) * 100 : 0;
+    return { relevantTasks: relevant, completedTasksCount: completed, overallProgress: progress };
+  }, [filteredTasks, today]);
 
-  const pillarData = PILARES.map(pillar => {
-    const pillarTasks = filteredTasks.filter(t => t.pillar === pillar);
-    const relevantPillarTasks = pillarTasks.filter(t => isBefore(parseISO(t.deadline), today) || format(parseISO(t.deadline), "yyyy-MM-dd") === format(today, "yyyy-MM-dd"));
-    const completed = relevantPillarTasks.filter(t => t.status === "Concluído").length;
-    const progress = relevantPillarTasks.length > 0 ? (completed / relevantPillarTasks.length) * 100 : 0;
-    return { name: pillar, progress, total: pillarTasks.length, relevant: relevantPillarTasks.length, completed };
-  });
+  const pillarData = React.useMemo(() => {
+    return PILARES.map(pillar => {
+      const pillarTasks = filteredTasks.filter(t => t.pillar === pillar);
+      const relevantPillarTasks = pillarTasks.filter(t => isBefore(parseISO(t.deadline), today) || format(parseISO(t.deadline), "yyyy-MM-dd") === format(today, "yyyy-MM-dd"));
+      const completed = relevantPillarTasks.filter(t => t.status === "Concluído").length;
+      const progress = relevantPillarTasks.length > 0 ? (completed / relevantPillarTasks.length) * 100 : 0;
+      return { name: pillar, progress, total: pillarTasks.length, relevant: relevantPillarTasks.length, completed };
+    });
+  }, [filteredTasks, today]);
 
-  const hasCriticalPillar = pillarData.some(p => p.relevant > 0 && p.progress < 70);
+  const hasCriticalPillar = React.useMemo(() => pillarData.some(p => p.relevant > 0 && p.progress < 70), [pillarData]);
   const isBelowGoal = overallProgress < 80;
 
   return (
@@ -126,12 +133,12 @@ const Dashboard: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <div className="px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-sm flex items-center gap-2">
-            <Target className="w-4 h-4 text-primary" />
+            <Target className="w-4 h-4 text-orange-600" />
             <span className="text-sm font-semibold text-slate-700">Meta Global: 80%</span>
           </div>
           <div className={clsx(
             "px-4 py-2 border rounded-xl shadow-sm flex items-center gap-2",
-            overallProgress >= 80 ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-slate-50 border-slate-200 text-primary"
+            overallProgress >= 80 ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-slate-50 border-slate-200 text-orange-600"
           )}>
             <TrendingUp className="w-4 h-4" />
             <span className="text-sm font-bold">Progresso: {overallProgress.toFixed(0)}%</span>
@@ -150,7 +157,7 @@ const Dashboard: React.FC = () => {
           <select 
             value={filterCollaborator}
             onChange={(e) => setFilterCollaborator(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-600/20 focus:border-orange-600 transition-all"
           >
             <option value="all">Todos os Colaboradores</option>
             {collaborators.map(c => (
@@ -161,7 +168,7 @@ const Dashboard: React.FC = () => {
           <select 
             value={filterPillar}
             onChange={(e) => setFilterPillar(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-600/20 focus:border-orange-600 transition-all"
           >
             <option value="all">Todos os Pilares</option>
             {PILARES.map(p => (
@@ -175,14 +182,14 @@ const Dashboard: React.FC = () => {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-600/20 focus:border-orange-600 transition-all"
             />
             <span className="text-slate-400">até</span>
             <input 
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-600/20 focus:border-orange-600 transition-all"
             />
           </div>
 
@@ -194,7 +201,7 @@ const Dashboard: React.FC = () => {
                 setStartDate("");
                 setEndDate("");
               }}
-              className="text-xs font-bold text-primary hover:underline"
+              className="text-xs font-bold text-orange-600 hover:underline"
             >
               Limpar Filtros
             </button>
@@ -242,7 +249,7 @@ const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
+              <TrendingUp className="w-5 h-5 text-orange-600" />
               Progresso por Pilar
             </h2>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Meta Mínima: 70%</span>
@@ -266,7 +273,7 @@ const Dashboard: React.FC = () => {
                 />
                 <Bar dataKey="progress" radius={[0, 4, 4, 0]} barSize={24}>
                   {pillarData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.progress < 70 ? '#f43f5e' : '#002147'} />
+                    <Cell key={`cell-${index}`} fill={entry.progress < 70 ? '#f43f5e' : '#ea580c'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -275,7 +282,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Summary Card */}
-        <div className="bg-primary p-8 rounded-3xl shadow-xl shadow-primary/20 text-white flex flex-col justify-between relative overflow-hidden group">
+        <div className="bg-orange-600 p-8 rounded-3xl shadow-xl shadow-orange-600/20 text-white flex flex-col justify-between relative overflow-hidden group">
           <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative z-10">
             <h2 className="text-xl font-bold mb-2">Visão Geral</h2>

@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { initializeFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocFromServer } from "firebase/firestore";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, signInWithCustomToken } from "firebase/auth";
+import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocFromServer } from "firebase/firestore";
 import firebaseConfigRaw from "../firebase-applet-config.json";
 
 const firebaseConfig = {
@@ -23,13 +23,7 @@ console.log("Initializing Firestore with Database ID:", firestoreDatabaseId);
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Use initializeFirestore with experimentalForceLongPolling to bypass potential WebSocket issues in the iframe
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-  useFetchStreams: false, 
-  host: "firestore.googleapis.com",
-  ssl: true,
-}, firestoreDatabaseId);
+export const db = getFirestore(app, firestoreDatabaseId);
 
 export { serverTimestamp, getDocFromServer };
 
@@ -50,10 +44,7 @@ export const testConnection = async () => {
 
 export const signUpWithEmail = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
 export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
-export const loginWithGoogle = () => {
-  const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
-};
+export const loginWithToken = (token: string) => signInWithCustomToken(auth, token);
 
 export const handleFirestoreError = (error: any, operation: string, path: string | null) => {
   const errInfo = {

@@ -1,18 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, User, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, addDoc } from "firebase/firestore";
-import { auth, db, signUpWithEmail, loginWithEmail, loginWithGoogle, testConnection, getDocFromServer } from "../firebase";
-import { UserProfile, PREDEFINED_USERS, INITIAL_TASKS } from "../types";
-import { updateDoc } from "firebase/firestore";
+import { onAuthStateChanged, User, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { doc, getDoc, setDoc, collection, addDoc, updateDoc } from "firebase/firestore";
+import { auth, db, loginWithEmail, signUpWithEmail, testConnection, getDocFromServer } from "../firebase";
+import { UserProfile, PREDEFINED_USERS, INITIAL_TASKS, USERS_CREDENTIALS } from "../types";
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, pass: string) => Promise<void>;
-  loginGoogle: () => Promise<void>;
-  signUp: (email: string, pass: string) => Promise<void>;
+  login: (email: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -25,15 +22,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const checkConn = async () => {
-      const res = await testConnection();
-      if (res === "offline") {
-        setError("O sistema está operando em modo offline ou não consegue conectar ao banco de dados. Verifique sua conexão.");
-      }
-    };
-    checkConn();
+  const DEFAULT_PASSWORD = "SeahubPassword123!";
+  const LEGACY_PASSWORD = "Seahub123";
 
+  useEffect(() => {
     if (!auth.app.options.apiKey) {
       setError("Configuração do Firebase incompleta: API Key ausente. Verifique as variáveis de ambiente.");
       setLoading(false);
@@ -108,13 +100,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   });
                 }
               }
-            } else {
-              console.warn("User authenticated but not in invited list. Email:", email);
-              await signOut(auth);
-              setUser(null);
-              setProfile(null);
-              setError(`O e-mail ${email} não está autorizado a acessar este sistema.`);
-            }
+      } else {
+        setError(`O e-mail ${email} não está autorizado.`);
+      }
           }
         } catch (err: any) {
           console.error("Error fetching user profile:", err);
@@ -133,136 +121,143 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, typedPassword?: string) => {
+    console.log("Starting simplified login process for:", email);
     setError(null);
     const normalizedEmail = email.toLowerCase().trim();
-    try {
-      await loginWithEmail(normalizedEmail, pass);
-    } catch (err: any) {
-      console.error("Login error in AuthContext:", err);
-      if (err.message?.toLowerCase().includes("offline")) {
-        setError("O banco de dados está offline. Verifique sua conexão.");
-      } else if (err.code === 'auth/user-not-found') {
-        setError("E-mail não encontrado. Se este é seu primeiro acesso, clique em 'Primeiro acesso?' abaixo.");
-      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError("Senha incorreta.");
-      } else if (err.code === 'auth/too-many-requests') {
-        setError("Muitas tentativas falhas. Tente novamente mais tarde.");
-      } else {
-        setError(`Erro ao realizar login: ${err.message || "Tente novamente mais tarde."}`);
-      }
-      throw err;
-    }
-  };
 
-  const loginGoogle = async () => {
-    setError(null);
-    try {
-      await loginWithGoogle();
-    } catch (err: any) {
-      console.error("Google Login error in AuthContext:", err);
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError("Login cancelado pelo usuário.");
-      } else if (err.code === 'auth/cancelled-popup-request') {
-        // Ignore
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError("O login pelo Google está desativado no Firebase Console. Por favor, ative-o em Authentication > Sign-in method.");
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setError(`Este domínio (${window.location.hostname}) não está autorizado para login no Firebase. Adicione-o em Authentication > Settings > Authorized domains.`);
-      } else {
-        setError(`Erro ao realizar login com Google: ${err.message || "Tente novamente mais tarde."}`);
-      }
-      throw err;
+    if (!normalizedEmail) {
+      setError("Por favor, selecione seu usuário.");
+      return;
     }
-  };
 
-  const signUp = async (email: string, pass: string) => {
-    setError(null);
-    const normalizedEmail = email.toLowerCase().trim();
+    if (!typedPassword) {
+      setError("Por favor, insira sua senha.");
+      return;
+    }
+
+    // Check if password matches the predefined one
+    const userCred = USERS_CREDENTIALS.find(u => u.email === normalizedEmail);
+    if (userCred && userCred.password !== typedPassword) {
+      setError("Senha incorreta.");
+      return;
+    }
+
+    // 1. Check if invited/predefined FIRST
+    let invitationData = PREDEFINED_USERS[normalizedEmail] ? {
+      email: normalizedEmail,
+      name: PREDEFINED_USERS[normalizedEmail].name,
+      role: PREDEFINED_USERS[normalizedEmail].role,
+      status: "pendente"
+    } : null;
+
+    if (!invitationData) {
+      try {
+        const invitedDoc = await getDoc(doc(db, "invitedUsers", normalizedEmail));
+        if (invitedDoc.exists()) {
+          invitationData = invitedDoc.data() as any;
+        }
+      } catch (e) {
+        console.warn("Error checking invitedUsers:", e);
+      }
+    }
+
+    if (!invitationData) {
+      setError("Este usuário não está autorizado. Entre em contato com o administrador.");
+      return;
+    }
+
+    // 2. Sequential login attempts
+    const passwordsToTry = [typedPassword, DEFAULT_PASSWORD, LEGACY_PASSWORD];
     
+    let loggedIn = false;
+
+    for (const pwd of passwordsToTry) {
+      try {
+        console.log(`Attempting login with password...`);
+        const result = await loginWithEmail(normalizedEmail, pwd);
+        console.log("Login successful");
+        loggedIn = true;
+        
+        // Increment login count
+        try {
+          const userDocRef = doc(db, "users", result.user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const currentCount = userDoc.data().loginCount || 0;
+            await updateDoc(userDocRef, { loginCount: currentCount + 1 });
+          }
+        } catch (e) {
+          console.error("Error incrementing login count:", e);
+        }
+        
+        break;
+      } catch (err: any) {
+        console.log(`Login failed with password:`, err.code);
+        // Continue to next password or signup
+      }
+    }
+
+    if (loggedIn) return;
+
+    // 3. If login failed, attempt auto-signup
+    console.log("Login failed with all passwords, attempting auto-signup...");
     try {
-      // 1. Check if user is in invitedUsers collection
-      const invitedDocRef = doc(db, "invitedUsers", normalizedEmail);
-      const invitedDoc = await getDoc(invitedDocRef);
-      
-      let invitationData = invitedDoc.exists() ? invitedDoc.data() : null;
-
-      // Fallback to PREDEFINED_USERS if not in Firestore yet (for legacy support)
-      if (!invitationData && PREDEFINED_USERS[normalizedEmail]) {
-        invitationData = {
-          email: normalizedEmail,
-          name: PREDEFINED_USERS[normalizedEmail].name,
-          role: PREDEFINED_USERS[normalizedEmail].role,
-          status: "pendente"
-        };
-      }
-
-      if (!invitationData) {
-        setError("Este e-mail não está na lista de convidados. Entre em contato com o administrador.");
-        throw new Error("Email not invited");
-      }
-
-      // 2. Create the account in Firebase Auth
-      const result = await signUpWithEmail(normalizedEmail, pass);
+      const result = await signUpWithEmail(normalizedEmail, DEFAULT_PASSWORD);
       const firebaseUser = result.user;
+      console.log("Signup successful for:", normalizedEmail);
 
-      // 3. Create profile in users collection
+      // Create profile
       const newProfile: UserProfile = {
         uid: firebaseUser.uid,
         name: invitationData.name || "Usuário",
-        email: firebaseUser.email || normalizedEmail,
-        role: invitationData.role
+        email: normalizedEmail,
+        role: invitationData.role,
+        loginCount: 1
       };
       
-      try {
-        await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
-        setProfile(newProfile);
+      await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
+      setProfile(newProfile);
 
-        // 4. Update status in invitedUsers
-        await setDoc(invitedDocRef, { ...invitationData, status: "ativo", email: normalizedEmail }, { merge: true });
+      // Update status in invitedUsers
+      const invitedDocRef = doc(db, "invitedUsers", normalizedEmail);
+      await setDoc(invitedDocRef, { ...invitationData, status: "ativo", email: normalizedEmail }, { merge: true });
 
-        // 5. Create initial tasks for collaborators
-        if (invitationData.role === "COLABORADOR") {
-          for (const task of INITIAL_TASKS) {
-            await addDoc(collection(db, "tasks"), {
-              ...task,
-              userId: firebaseUser.uid,
-              createdBy: "SYSTEM",
-            });
-          }
+      // Create initial tasks for collaborators
+      if (invitationData.role === "COLABORADOR") {
+        for (const task of INITIAL_TASKS) {
+          await addDoc(collection(db, "tasks"), {
+            ...task,
+            userId: firebaseUser.uid,
+            createdBy: "SYSTEM",
+          });
         }
-      } catch (firestoreErr) {
-        console.error("Firestore error during signup:", firestoreErr);
-        // Even if firestore fails, the auth account is created. 
-        // onAuthStateChanged will try to fix it on next load/refresh.
       }
     } catch (err: any) {
-      console.error("Signup error in AuthContext:", err);
-      if (err.message?.toLowerCase().includes("offline")) {
-        setError("O banco de dados está offline. Verifique sua conexão.");
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError("Este e-mail já possui uma conta ativa. Tente fazer login.");
-      } else if (err.code === 'auth/weak-password') {
-        setError("A senha deve ter no mínimo 6 caracteres.");
-      } else if (err.code === 'auth/invalid-email') {
-        setError("E-mail inválido.");
-      } else if (err.message === "Email not invited") {
-        // Error already set
+      const errorCode = err.code || "";
+      const errorMessage = err.message || "";
+      console.error("Signup/Profile creation failed details:", { errorCode, errorMessage });
+
+      if (errorCode === 'auth/email-already-in-use' || errorMessage.toLowerCase().includes('email-already-in-use')) {
+        setError("Este usuário já possui um acesso ativo com uma senha diferente. Por favor, contate o suporte.");
       } else {
-        setError(`Erro ao realizar cadastro: ${err.message || "Tente novamente mais tarde."}`);
+        setError(`Erro ao realizar login: ${errorMessage || "Tente novamente mais tarde."}`);
       }
-      throw err;
+      // Do NOT re-throw, we've handled the error by setting the state
     }
   };
 
   const logout = async () => {
-    await auth.signOut();
+    await signOut(auth);
+    setProfile(null);
   };
 
-  const clearError = () => setError(null);
+  const clearError = () => {
+    setError(null);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, error, login, loginGoogle, signUp, logout, clearError }}>
+    <AuthContext.Provider value={{ user, profile, loading, error, login, logout, clearError }}>
       {children}
     </AuthContext.Provider>
   );
