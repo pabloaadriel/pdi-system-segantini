@@ -117,23 +117,20 @@ const Login: React.FC = () => {
             
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Usuário</label>
-                <select
-                  value={selectedEmail}
-                  onChange={(e) => {
-                    setSelectedEmail(e.target.value);
-                    if (authError) clearError();
-                  }}
-                  required
-                  className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-medium focus:border-[#ea580c] focus:ring-0 transition-all outline-none appearance-none"
-                >
-                  <option value="" disabled>Selecione seu nome</option>
-                  {USERS_CREDENTIALS.map((u) => (
-                    <option key={u.email} value={u.email}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">E-mail</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={selectedEmail}
+                    onChange={(e) => {
+                      setSelectedEmail(e.target.value);
+                      if (authError) clearError();
+                    }}
+                    placeholder="Digite seu e-mail"
+                    required
+                    className="w-full px-5 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-medium focus:border-[#ea580c] focus:ring-0 transition-all outline-none"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

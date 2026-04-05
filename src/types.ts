@@ -19,10 +19,17 @@ export const USERS_CREDENTIALS = [
   { name: "Lara", email: "laramartins@segantiniconsultoria.com", password: "LSEAHUB123", role: "GESTOR" as UserRole },
 ];
 
-export const PREDEFINED_USERS: Record<string, { name: string, role: UserRole }> = USERS_CREDENTIALS.reduce((acc, user) => {
-  acc[user.email] = { name: user.name, role: user.role };
-  return acc;
-}, {} as Record<string, { name: string, role: UserRole }>);
+export const PREDEFINED_USERS: Record<string, { name: string, role: UserRole }> = {
+  "fulvio@seahubcoworking.com.br": { name: "Fúlvio", role: "COLABORADOR" },
+  "regis@seahubcoworoking.com.br": { name: "Régis", role: "COLABORADOR" },
+  "regis@seahubcoworking.com.br": { name: "Régis", role: "COLABORADOR" },
+  "diegosena@seahubcoworking.com.br": { name: "Diego", role: "COLABORADOR" },
+  "natha@seahubcoworking.com.br": { name: "Nathã", role: "COLABORADOR" },
+  "socorro@seahubcoworking.com.br": { name: "Socorro", role: "COLABORADOR" },
+  "meduarda@seahubcoworking.com.br": { name: "Maria Eduarda", role: "COLABORADOR" },
+  "guilherme@seahubcoworking.com.br": { name: "Guilherme", role: "GESTOR" },
+  "laramartins@segantiniconsultoria.com": { name: "Lara", role: "GESTOR" }
+};
 
 export type TaskStatus = "A fazer" | "Em andamento" | "Concluído";
 

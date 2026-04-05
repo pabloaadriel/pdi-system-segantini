@@ -122,128 +122,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, typedPassword?: string) => {
-    console.log("Starting simplified login process for:", email);
     setError(null);
     const normalizedEmail = email.toLowerCase().trim();
 
-    if (!normalizedEmail) {
-      setError("Por favor, selecione seu usuário.");
+    if (!normalizedEmail || !typedPassword) {
+      setError("Por favor, preencha e-mail e senha.");
       return;
     }
 
-    if (!typedPassword) {
-      setError("Por favor, insira sua senha.");
-      return;
-    }
-
-    // Check if password matches the predefined one
-    const userCred = USERS_CREDENTIALS.find(u => u.email === normalizedEmail);
-    if (userCred && userCred.password !== typedPassword) {
-      setError("Senha incorreta.");
-      return;
-    }
-
-    // 1. Check if invited/predefined FIRST
-    let invitationData = PREDEFINED_USERS[normalizedEmail] ? {
-      email: normalizedEmail,
-      name: PREDEFINED_USERS[normalizedEmail].name,
-      role: PREDEFINED_USERS[normalizedEmail].role,
-      status: "pendente"
-    } : null;
-
-    if (!invitationData) {
+    try {
+      setLoading(true);
+      const result = await loginWithEmail(normalizedEmail, typedPassword);
+      
+      // Increment login count
       try {
-        const invitedDoc = await getDoc(doc(db, "invitedUsers", normalizedEmail));
-        if (invitedDoc.exists()) {
-          invitationData = invitedDoc.data() as any;
+        const userDocRef = doc(db, "users", result.user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const currentCount = userDoc.data().loginCount || 0;
+          await updateDoc(userDocRef, { loginCount: currentCount + 1 });
         }
       } catch (e) {
-        console.warn("Error checking invitedUsers:", e);
-      }
-    }
-
-    if (!invitationData) {
-      setError("Este usuário não está autorizado. Entre em contato com o administrador.");
-      return;
-    }
-
-    // 2. Sequential login attempts
-    const passwordsToTry = [typedPassword, DEFAULT_PASSWORD, LEGACY_PASSWORD];
-    
-    let loggedIn = false;
-
-    for (const pwd of passwordsToTry) {
-      try {
-        console.log(`Attempting login with password...`);
-        const result = await loginWithEmail(normalizedEmail, pwd);
-        console.log("Login successful");
-        loggedIn = true;
-        
-        // Increment login count
-        try {
-          const userDocRef = doc(db, "users", result.user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const currentCount = userDoc.data().loginCount || 0;
-            await updateDoc(userDocRef, { loginCount: currentCount + 1 });
-          }
-        } catch (e) {
-          console.error("Error incrementing login count:", e);
-        }
-        
-        break;
-      } catch (err: any) {
-        console.log(`Login failed with password:`, err.code);
-        // Continue to next password or signup
-      }
-    }
-
-    if (loggedIn) return;
-
-    // 3. If login failed, attempt auto-signup
-    console.log("Login failed with all passwords, attempting auto-signup...");
-    try {
-      const result = await signUpWithEmail(normalizedEmail, DEFAULT_PASSWORD);
-      const firebaseUser = result.user;
-      console.log("Signup successful for:", normalizedEmail);
-
-      // Create profile
-      const newProfile: UserProfile = {
-        uid: firebaseUser.uid,
-        name: invitationData.name || "Usuário",
-        email: normalizedEmail,
-        role: invitationData.role,
-        loginCount: 1
-      };
-      
-      await setDoc(doc(db, "users", firebaseUser.uid), newProfile);
-      setProfile(newProfile);
-
-      // Update status in invitedUsers
-      const invitedDocRef = doc(db, "invitedUsers", normalizedEmail);
-      await setDoc(invitedDocRef, { ...invitationData, status: "ativo", email: normalizedEmail }, { merge: true });
-
-      // Create initial tasks for collaborators
-      if (invitationData.role === "COLABORADOR") {
-        for (const task of INITIAL_TASKS) {
-          await addDoc(collection(db, "tasks"), {
-            ...task,
-            userId: firebaseUser.uid,
-            createdBy: "SYSTEM",
-          });
-        }
+        console.error("Error incrementing login count:", e);
       }
     } catch (err: any) {
-      const errorCode = err.code || "";
-      const errorMessage = err.message || "";
-      console.error("Signup/Profile creation failed details:", { errorCode, errorMessage });
-
-      if (errorCode === 'auth/email-already-in-use' || errorMessage.toLowerCase().includes('email-already-in-use')) {
-        setError("Este usuário já possui um acesso ativo com uma senha diferente. Por favor, contate o suporte.");
-      } else {
-        setError(`Erro ao realizar login: ${errorMessage || "Tente novamente mais tarde."}`);
-      }
-      // Do NOT re-throw, we've handled the error by setting the state
+      console.error("Login error:", err);
+      setError("E-mail ou senha incorretos.");
+      setLoading(false);
     }
   };
 
