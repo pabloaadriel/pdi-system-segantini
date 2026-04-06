@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../components/AuthContext";
 import { db, handleFirestoreError } from "../firebase";
-import { collection, query, where, onSnapshot, updateDoc, doc, addDoc, deleteDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, onSnapshot, updateDoc, doc, addDoc, deleteDoc, serverTimestamp, getDoc } from "../lib/mockFirebase";
 import { Task, PILARES, TaskStatus, UserProfile } from "../types";
 import { 
   CheckCircle2, 

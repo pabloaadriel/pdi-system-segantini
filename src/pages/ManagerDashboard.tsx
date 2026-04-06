@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from '../lib/mockFirebase';
 import { UserProfile, PILARES } from '../types';
 import { 
   Users, 

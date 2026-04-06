@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../components/AuthContext";
 import { db } from "../firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "../lib/mockFirebase";
 import { Task, PILARES, UserProfile } from "../types";
 import { 
   BarChart, 
@@ -77,12 +77,6 @@ const Dashboard: React.FC = () => {
     }
   }, [user, profile, isManager]);
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
-    </div>
-  );
-
   const today = startOfDay(new Date());
 
   // Apply filters
@@ -116,6 +110,12 @@ const Dashboard: React.FC = () => {
 
   const hasCriticalPillar = React.useMemo(() => pillarData.some(p => p.relevant > 0 && p.progress < 70), [pillarData]);
   const isBelowGoal = overallProgress < 80;
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">

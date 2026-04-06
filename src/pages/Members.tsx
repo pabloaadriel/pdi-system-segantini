@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "../lib/mockFirebase";
 import { db } from "../firebase";
 import { UserProfile, PREDEFINED_USERS } from "../types";
 import { Mail, User as UserIcon, CheckCircle2, Clock, Shield } from "lucide-react";
